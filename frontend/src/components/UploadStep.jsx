@@ -99,7 +99,12 @@ function FileDropzone({ label, accept, file, onFile }) {
   );
 }
 
-export default function UploadStep({ onFilesSelected, resumeOnly = false }) {
+export default function UploadStep({
+  onFilesSelected,
+  resumeOnly = false,
+  templateLabel = "PowerPoint Template (.pptx)",
+  templateAccept = ".pptx",
+}) {
   const [resumeFile, setResumeFile] = useState(null);
   const [templateFile, setTemplateFile] = useState(null);
 
@@ -115,8 +120,8 @@ export default function UploadStep({ onFilesSelected, resumeOnly = false }) {
       />
       {!resumeOnly && (
         <FileDropzone
-          label="PowerPoint Template (.pptx)"
-          accept=".pptx"
+          label={templateLabel}
+          accept={templateAccept}
           file={templateFile}
           onFile={setTemplateFile}
         />

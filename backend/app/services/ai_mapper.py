@@ -15,6 +15,16 @@ Rules:
 7. For multi-line content (bullet points, multiple items), use \\n to separate lines.
 8. Use the shape's shape_name and current_text as strong hints for what kind of content it expects."""
 
+DOCX_SYSTEM_PROMPT = """You are an expert at mapping structured resume data into Word document (DOCX) paragraphs.
+Your task is to intelligently fill a DOCX template with resume content.
+
+Rules:
+1. Return ONLY a valid JSON array. No markdown, no explanation, no code fences.
+2. Only include paragraphs that should receive new content.
+3. Preserve the semantic purpose of each paragraph (headings stay headings, body text stays body text).
+4. Never fabricate information not present in the resume.
+5. Use the paragraph's style_name and current_text as strong hints for what kind of content it expects."""
+
 
 def _format_experience(experience: list) -> str:
     if not experience:
@@ -235,5 +245,202 @@ def map_resume_to_ppt(
         return _call_claude(prompt, api_key)
     elif provider == "openai":
         return _call_openai(prompt, api_key)
+    else:
+        raise ValueError(f"Unknown AI provider: {provider}")
+
+
+def _build_docx_prompt(resume: ResumeData, inventory: list) -> str:
+    exp_text = _format_experience(resume.experience)
+    edu_text = _format_education(resume.education)
+
+    resume_section = f"""## Resume Data
+
+Name: {resume.name or 'N/A'}
+Email: {resume.email or 'N/A'}
+Phone: {resume.phone or 'N/A'}
+LinkedIn: {resume.linkedin or 'N/A'}
+Location: {resume.location or 'N/A'}
+
+Summary:
+{resume.summary or 'N/A'}
+
+Experience:
+{exp_text}
+
+Education:
+{edu_text}
+
+Skills: {", ".join(resume.skills) if resume.skills else 'N/A'}
+
+Certifications: {", ".join(resume.certifications) if resume.certifications else 'N/A'}
+
+Languages: {", ".join(resume.languages) if resume.languages else 'N/A'}
+"""
+
+    inventory_section = f"""---
+
+## DOCX Paragraph Inventory
+
+{json.dumps(inventory, indent=2)}
+
+---
+
+## Task
+
+Map the resume data to the DOCX paragraphs above.
+Return a JSON ARRAY with EXACTLY this structure (no other text):
+[
+  {{
+    "source": "<body or table>",
+    "para_index": <int>,
+    "table_index": <int or omit if body>,
+    "row": <int or omit if body>,
+    "col": <int or omit if body>,
+    "is_in_table": <true or false>,
+    "new_text": "<replacement text>"
+  }}
+]
+
+Guidelines:
+- Use style_name and current_text as hints for what each paragraph holds.
+- Paragraphs with style "Heading 1" or "Title" and text like "Your Name" → candidate's full name.
+- Paragraphs containing email/phone/linkedin patterns → fill with corresponding contact info.
+- Body text paragraphs with summary/objective hints → paste the summary.
+- List/bullet paragraphs under experience → format as concise achievement bullets.
+- Only include paragraphs from the inventory above (match by para_index + source + table coords).
+- Never fabricate data not in the resume."""
+
+    return resume_section + inventory_section
+
+
+def _parse_json_list_response(raw: str) -> list:
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip(), flags=re.MULTILINE)
+    cleaned = cleaned.strip()
+    try:
+        result = json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"AI returned invalid JSON: {e}\nRaw (first 500 chars): {raw[:500]}")
+    if not isinstance(result, list):
+        raise ValueError(f"Expected a JSON array, got {type(result)}")
+    return result
+
+
+def _heuristic_docx_map(resume: ResumeData, inventory: list) -> list:
+    keyword_map = {
+        "name": resume.name,
+        "your name": resume.name,
+        "candidate": resume.name,
+        "full name": resume.name,
+        "email": resume.email,
+        "phone": resume.phone,
+        "mobile": resume.phone,
+        "linkedin": resume.linkedin,
+        "location": resume.location,
+        "address": resume.location,
+        "summary": resume.summary,
+        "objective": resume.summary,
+        "profile": resume.summary,
+        "about": resume.summary,
+        "skill": ", ".join(resume.skills) if resume.skills else None,
+        "certification": ", ".join(resume.certifications) if resume.certifications else None,
+        "language": ", ".join(resume.languages) if resume.languages else None,
+    }
+
+    first_exp = None
+    if resume.experience:
+        e = resume.experience[0]
+        lines = [f"{e.title or ''} at {e.company or ''}".strip()]
+        if e.dates:
+            lines.append(e.dates)
+        lines.extend(f"• {b}" for b in e.bullets[:4])
+        first_exp = "\n".join(l for l in lines if l)
+
+    experience_keywords = {"experience", "work", "employment", "history"}
+
+    first_edu = None
+    if resume.education:
+        ed = resume.education[0]
+        parts = [ed.degree or "", ed.school or "", ed.dates or ""]
+        first_edu = " | ".join(p for p in parts if p)
+
+    education_keywords = {"education", "degree", "university", "school", "academic"}
+
+    result = []
+    for item in inventory:
+        haystack = (item.get("style_name", "") + " " + item.get("current_text", "")).lower()
+        matched = None
+
+        if any(kw in haystack for kw in experience_keywords):
+            matched = first_exp
+        elif any(kw in haystack for kw in education_keywords):
+            matched = first_edu
+        else:
+            for keyword, value in keyword_map.items():
+                if keyword in haystack and value:
+                    matched = value
+                    break
+
+        if matched:
+            entry = {
+                "source": item.get("source", "body"),
+                "para_index": item["para_index"],
+                "is_in_table": item.get("is_in_table", False),
+                "new_text": matched,
+            }
+            if item.get("is_in_table"):
+                entry["table_index"] = item.get("table_index", 0)
+                entry["row"] = item.get("row", 0)
+                entry["col"] = item.get("col", 0)
+            result.append(entry)
+
+    return result
+
+
+def map_resume_to_docx(
+    resume: ResumeData,
+    inventory: list,
+    provider: str,
+    api_key: str | None,
+) -> list:
+    if provider == "none" or not provider:
+        return _heuristic_docx_map(resume, inventory)
+
+    prompt = _build_docx_prompt(resume, inventory)
+
+    if provider == "claude":
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+        message = client.messages.create(
+            model="claude-opus-4-5",
+            max_tokens=4096,
+            system=DOCX_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = message.content[0].text.strip()
+        return _parse_json_list_response(raw)
+    elif provider == "openai":
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": DOCX_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+            response_format={"type": "json_object"},
+            max_tokens=4096,
+        )
+        raw = response.choices[0].message.content
+        # OpenAI json_object mode always returns an object — unwrap if needed
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict) and "mapping" in parsed:
+            return parsed["mapping"]
+        if isinstance(parsed, list):
+            return parsed
+        # Try first value that is a list
+        for v in parsed.values():
+            if isinstance(v, list):
+                return v
+        raise ValueError(f"Unexpected OpenAI DOCX response shape: {list(parsed.keys())}")
     else:
         raise ValueError(f"Unknown AI provider: {provider}")
