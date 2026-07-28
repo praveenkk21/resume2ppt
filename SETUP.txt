@@ -1,0 +1,98 @@
+====================================================
+  RESUME TO PPT — SETUP & RUN GUIDE
+====================================================
+
+REQUIREMENTS
+------------
+- Python 3.10 or higher
+- Node.js 18 or higher
+- npm 9 or higher
+
+
+----------------------------------------------------
+  BACKEND SETUP (FastAPI)
+----------------------------------------------------
+
+1. Open a terminal and navigate to the backend folder:
+
+     cd backend
+
+2. Create a Python virtual environment:
+
+     python -m venv venv
+
+3. Activate the virtual environment:
+
+     Windows:
+       venv\Scripts\activate
+
+     Mac / Linux:
+       source venv/bin/activate
+
+4. Install Python dependencies:
+
+     pip install -r requirements.txt
+
+5. Start the backend server:
+
+     uvicorn app.main:app --reload --port 8000
+
+The backend will be running at:
+  http://localhost:8000
+
+Interactive API docs (Swagger UI):
+  http://localhost:8000/docs
+
+
+----------------------------------------------------
+  FRONTEND SETUP (React / Vite)
+----------------------------------------------------
+
+1. Open a NEW terminal and navigate to the frontend folder:
+
+     cd frontend
+
+2. Install Node dependencies:
+
+     npm install
+
+3. Start the frontend dev server:
+
+     npm run dev
+
+The app will be running at:
+  http://localhost:5173
+
+NOTE: The frontend proxies all /api/* requests to
+the backend at localhost:8000, so BOTH servers
+must be running at the same time.
+
+
+----------------------------------------------------
+  PRODUCTION BUILD (optional)
+----------------------------------------------------
+
+To build the frontend for production:
+
+     cd frontend
+     npm run build
+
+Static files will be output to frontend/dist/
+
+
+----------------------------------------------------
+  QUICK START SUMMARY
+----------------------------------------------------
+
+Terminal 1 (backend):
+  cd backend
+  venv\Scripts\activate   (or: source venv/bin/activate)
+  uvicorn app.main:app --reload --port 8000
+
+Terminal 2 (frontend):
+  cd frontend
+  npm run dev
+
+Then open: http://localhost:5173
+
+====================================================
