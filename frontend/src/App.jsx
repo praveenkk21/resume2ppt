@@ -1,5 +1,6 @@
 import { useState } from "react";
 import StepIndicator from "./components/StepIndicator.jsx";
+import ModeStep from "./components/ModeStep.jsx";
 import UploadStep from "./components/UploadStep.jsx";
 import ConfigStep from "./components/ConfigStep.jsx";
 import DownloadStep from "./components/DownloadStep.jsx";
@@ -39,10 +40,18 @@ const styles = {
 };
 
 export default function App() {
+  // mode: null | "ppt" | "convert"
+  const [mode, setMode] = useState(null);
+  // step within the chosen mode
   const [step, setStep] = useState(1);
   const [resumeFile, setResumeFile] = useState(null);
   const [templateFile, setTemplateFile] = useState(null);
   const { convert, loading, error, resultBlob } = useConvert();
+
+  function handleModeSelected(selectedMode) {
+    setMode(selectedMode);
+    setStep(1);
+  }
 
   function handleFilesSelected(rf, tf) {
     setResumeFile(rf);
@@ -56,21 +65,36 @@ export default function App() {
   }
 
   function handleReset() {
+    setMode(null);
     setStep(1);
     setResumeFile(null);
     setTemplateFile(null);
   }
+
+  const showIndicator = mode !== null;
 
   return (
     <div style={styles.wrapper}>
       <div style={styles.card}>
         <h1 style={styles.title}>Resume → PPT</h1>
         <p style={styles.subtitle}>
-          Upload your resume and a PowerPoint template. We'll fill it in for you.
+          Fill a PowerPoint template or convert your resume to a new format.
         </p>
-        <StepIndicator currentStep={step} />
-        {step === 1 && <UploadStep onFilesSelected={handleFilesSelected} />}
-        {step === 2 && (
+
+        {showIndicator && (
+          <StepIndicator currentStep={step} mode={mode} />
+        )}
+
+        {/* Mode selection */}
+        {mode === null && (
+          <ModeStep onModeSelected={handleModeSelected} />
+        )}
+
+        {/* PPT mode: steps 1–4 */}
+        {mode === "ppt" && step === 1 && (
+          <UploadStep onFilesSelected={handleFilesSelected} resumeOnly={false} />
+        )}
+        {mode === "ppt" && step === 2 && (
           <ConfigStep
             onConvert={handleConvert}
             onBack={() => setStep(1)}
@@ -78,14 +102,25 @@ export default function App() {
             error={error}
           />
         )}
-        {step === 3 && resultBlob && (
+        {mode === "ppt" && step === 3 && resultBlob && (
           <DownloadStep
             resultBlob={resultBlob}
             onReset={handleReset}
             onNext={() => setStep(4)}
           />
         )}
-        {step === 4 && (
+        {mode === "ppt" && step === 4 && (
+          <ResumeFormatStep resumeFile={resumeFile} onReset={handleReset} />
+        )}
+
+        {/* Convert mode: steps 1–2 */}
+        {mode === "convert" && step === 1 && (
+          <UploadStep
+            onFilesSelected={handleFilesSelected}
+            resumeOnly={true}
+          />
+        )}
+        {mode === "convert" && step === 2 && (
           <ResumeFormatStep resumeFile={resumeFile} onReset={handleReset} />
         )}
       </div>
