@@ -12,6 +12,20 @@ const styles = {
     color: "#6b7280",
     margin: "0 0 32px 0",
   },
+  nextBtn: {
+    display: "block",
+    width: "100%",
+    padding: "14px",
+    background: "#4f46e5",
+    color: "#fff",
+    border: "none",
+    borderRadius: "8px",
+    fontSize: "15px",
+    fontWeight: "600",
+    cursor: "pointer",
+    marginBottom: "12px",
+    transition: "background 0.2s",
+  },
   downloadBtn: {
     display: "block",
     width: "100%",
@@ -40,7 +54,7 @@ const styles = {
   },
 };
 
-export default function DownloadStep({ resultBlob, onReset }) {
+export default function DownloadStep({ resultBlob, onReset, onNext }) {
   function handleDownload() {
     const url = URL.createObjectURL(resultBlob);
     const a = document.createElement("a");
@@ -57,6 +71,9 @@ export default function DownloadStep({ resultBlob, onReset }) {
       <p style={styles.subtitle}>
         Resume data has been mapped into your template. Download and open in PowerPoint.
       </p>
+      <button style={styles.nextBtn} onClick={onNext}>
+        Next: Export Resume Format →
+      </button>
       <button style={styles.downloadBtn} onClick={handleDownload}>
         Download filled_resume.pptx
       </button>

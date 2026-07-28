@@ -1,4 +1,4 @@
-const steps = ["Upload Files", "Configure AI", "Download"];
+const steps = ["Upload Files", "Configure AI", "Download PPT", "Export Resume"];
 
 const styles = {
   wrapper: {

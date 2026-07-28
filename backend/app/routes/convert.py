@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from app.services.resume_parser import parse_resume
 from app.services.ppt_handler import extract_shape_inventory, apply_mapping
 from app.services.ai_mapper import map_resume_to_ppt
+from app.services.resume_exporter import export_as_docx, export_as_pdf
 
 router = APIRouter()
 
@@ -89,4 +90,49 @@ async def convert(
         io.BytesIO(filled_bytes),
         media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         headers={"Content-Disposition": "attachment; filename=filled_resume.pptx"},
+    )
+
+
+@router.post("/convert-resume")
+async def convert_resume_format(
+    resume: UploadFile = File(...),
+    output_format: str = Form(...),
+):
+    fmt = output_format.lower().strip()
+    if fmt not in ("docx", "pdf"):
+        raise HTTPException(
+            status_code=422,
+            detail="output_format must be 'docx' or 'pdf'.",
+        )
+
+    resume_ext = resume.filename.rsplit(".", 1)[-1].lower() if resume.filename else ""
+    if resume_ext not in ("pdf", "docx"):
+        raise HTTPException(
+            status_code=422,
+            detail="Unsupported resume format. Please upload a .pdf or .docx file.",
+        )
+
+    resume_bytes = await resume.read()
+
+    try:
+        resume_data = parse_resume(resume_bytes, resume.filename)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Failed to parse resume: {str(e)}")
+
+    try:
+        if fmt == "docx":
+            output_bytes = export_as_docx(resume_data)
+            media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            filename = "resume.docx"
+        else:
+            output_bytes = export_as_pdf(resume_data)
+            media_type = "application/pdf"
+            filename = "resume.pdf"
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
+    return StreamingResponse(
+        io.BytesIO(output_bytes),
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )

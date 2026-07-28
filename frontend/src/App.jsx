@@ -3,6 +3,7 @@ import StepIndicator from "./components/StepIndicator.jsx";
 import UploadStep from "./components/UploadStep.jsx";
 import ConfigStep from "./components/ConfigStep.jsx";
 import DownloadStep from "./components/DownloadStep.jsx";
+import ResumeFormatStep from "./components/ResumeFormatStep.jsx";
 import { useConvert } from "./hooks/useConvert.js";
 
 const styles = {
@@ -78,7 +79,14 @@ export default function App() {
           />
         )}
         {step === 3 && resultBlob && (
-          <DownloadStep resultBlob={resultBlob} onReset={handleReset} />
+          <DownloadStep
+            resultBlob={resultBlob}
+            onReset={handleReset}
+            onNext={() => setStep(4)}
+          />
+        )}
+        {step === 4 && (
+          <ResumeFormatStep resumeFile={resumeFile} onReset={handleReset} />
         )}
       </div>
     </div>
