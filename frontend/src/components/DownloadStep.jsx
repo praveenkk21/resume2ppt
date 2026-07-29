@@ -12,20 +12,6 @@ const styles = {
     color: "#6b7280",
     margin: "0 0 32px 0",
   },
-  nextBtn: {
-    display: "block",
-    width: "100%",
-    padding: "14px",
-    background: "#4f46e5",
-    color: "#fff",
-    border: "none",
-    borderRadius: "8px",
-    fontSize: "15px",
-    fontWeight: "600",
-    cursor: "pointer",
-    marginBottom: "12px",
-    transition: "background 0.2s",
-  },
   downloadBtn: {
     display: "block",
     width: "100%",
@@ -54,28 +40,28 @@ const styles = {
   },
 };
 
-export default function DownloadStep({ resultBlob, onReset, onNext }) {
+export default function DownloadStep({ resultBlob, outputFilename = "filled_resume.pptx", onReset }) {
   function handleDownload() {
     const url = URL.createObjectURL(resultBlob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "filled_resume.pptx";
+    a.download = outputFilename;
     a.click();
     URL.revokeObjectURL(url);
   }
 
+  const isDocx = outputFilename.endsWith(".docx");
+
   return (
     <div style={styles.center}>
       <div style={styles.icon}>🎉</div>
-      <h2 style={styles.title}>Your PPT is ready!</h2>
+      <h2 style={styles.title}>Your {isDocx ? "DOCX" : "PPT"} is ready!</h2>
       <p style={styles.subtitle}>
-        Resume data has been mapped into your template. Download and open in PowerPoint.
+        Resume data has been mapped into your template.{" "}
+        {isDocx ? "Open in Microsoft Word to review." : "Open in PowerPoint to review."}
       </p>
-      <button style={styles.nextBtn} onClick={onNext}>
-        Next: Export Resume Format →
-      </button>
       <button style={styles.downloadBtn} onClick={handleDownload}>
-        Download filled_resume.pptx
+        Download {outputFilename}
       </button>
       <button style={styles.resetBtn} onClick={onReset}>
         Start Over

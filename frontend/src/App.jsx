@@ -1,11 +1,8 @@
 import { useState } from "react";
 import StepIndicator from "./components/StepIndicator.jsx";
-import ModeStep from "./components/ModeStep.jsx";
 import UploadStep from "./components/UploadStep.jsx";
 import ConfigStep from "./components/ConfigStep.jsx";
 import DownloadStep from "./components/DownloadStep.jsx";
-import DocxDownloadStep from "./components/DocxDownloadStep.jsx";
-import ResumeFormatStep from "./components/ResumeFormatStep.jsx";
 import { useConvert } from "./hooks/useConvert.js";
 import { useConvertDocx } from "./hooks/useConvertDocx.js";
 
@@ -42,7 +39,6 @@ const styles = {
 };
 
 export default function App() {
-  const [mode, setMode] = useState(null);
   const [step, setStep] = useState(1);
   const [resumeFile, setResumeFile] = useState(null);
   const [templateFile, setTemplateFile] = useState(null);
@@ -50,10 +46,12 @@ export default function App() {
   const { convert, loading: pptLoading, error: pptError, resultBlob: pptBlob } = useConvert();
   const { convertDocx, loading: docxLoading, error: docxError, resultBlob: docxBlob } = useConvertDocx();
 
-  function handleModeSelected(selectedMode) {
-    setMode(selectedMode);
-    setStep(1);
-  }
+  const templateExt = templateFile?.name?.split(".").pop()?.toLowerCase();
+  const isDocx = templateExt === "docx";
+  const loading = isDocx ? docxLoading : pptLoading;
+  const error = isDocx ? docxError : pptError;
+  const resultBlob = isDocx ? docxBlob : pptBlob;
+  const outputFilename = isDocx ? "filled_resume.docx" : "filled_resume.pptx";
 
   function handleFilesSelected(rf, tf) {
     setResumeFile(rf);
@@ -61,18 +59,16 @@ export default function App() {
     setStep(2);
   }
 
-  async function handlePptConvert(provider, apiKey) {
-    await convert({ resumeFile, templateFile, aiProvider: provider, apiKey });
-    setStep(3);
-  }
-
-  async function handleDocxConvert(provider, apiKey) {
-    await convertDocx({ resumeFile, templateFile, aiProvider: provider, apiKey });
+  async function handleConvert(provider, apiKey) {
+    if (isDocx) {
+      await convertDocx({ resumeFile, templateFile, aiProvider: provider, apiKey });
+    } else {
+      await convert({ resumeFile, templateFile, aiProvider: provider, apiKey });
+    }
     setStep(3);
   }
 
   function handleReset() {
-    setMode(null);
     setStep(1);
     setResumeFile(null);
     setTemplateFile(null);
@@ -81,66 +77,26 @@ export default function App() {
   return (
     <div style={styles.wrapper}>
       <div style={styles.card}>
-        <h1 style={styles.title}>Resume → PPT / DOCX</h1>
+        <h1 style={styles.title}>Resume Converter</h1>
         <p style={styles.subtitle}>
-          Fill a PowerPoint or Word template, or convert your resume to a new format.
+          Upload your resume and a template (.pptx or .docx). We'll fill it in for you.
         </p>
-
-        {mode !== null && <StepIndicator currentStep={step} mode={mode} />}
-
-        {/* Landing */}
-        {mode === null && <ModeStep onModeSelected={handleModeSelected} />}
-
-        {/* PPT mode: steps 1–4 */}
-        {mode === "ppt" && step === 1 && (
-          <UploadStep onFilesSelected={handleFilesSelected} resumeOnly={false} />
-        )}
-        {mode === "ppt" && step === 2 && (
+        <StepIndicator currentStep={step} />
+        {step === 1 && <UploadStep onFilesSelected={handleFilesSelected} />}
+        {step === 2 && (
           <ConfigStep
-            onConvert={handlePptConvert}
+            onConvert={handleConvert}
             onBack={() => setStep(1)}
-            loading={pptLoading}
-            error={pptError}
+            loading={loading}
+            error={error}
           />
         )}
-        {mode === "ppt" && step === 3 && pptBlob && (
+        {step === 3 && resultBlob && (
           <DownloadStep
-            resultBlob={pptBlob}
+            resultBlob={resultBlob}
+            outputFilename={outputFilename}
             onReset={handleReset}
-            onNext={() => setStep(4)}
           />
-        )}
-        {mode === "ppt" && step === 4 && (
-          <ResumeFormatStep resumeFile={resumeFile} onReset={handleReset} />
-        )}
-
-        {/* DOCX mode: steps 1–3 */}
-        {mode === "docx" && step === 1 && (
-          <UploadStep
-            onFilesSelected={handleFilesSelected}
-            resumeOnly={false}
-            templateLabel="DOCX Template (.docx)"
-            templateAccept=".docx"
-          />
-        )}
-        {mode === "docx" && step === 2 && (
-          <ConfigStep
-            onConvert={handleDocxConvert}
-            onBack={() => setStep(1)}
-            loading={docxLoading}
-            error={docxError}
-          />
-        )}
-        {mode === "docx" && step === 3 && docxBlob && (
-          <DocxDownloadStep resultBlob={docxBlob} onReset={handleReset} />
-        )}
-
-        {/* Convert mode: steps 1–2 */}
-        {mode === "convert" && step === 1 && (
-          <UploadStep onFilesSelected={handleFilesSelected} resumeOnly={true} />
-        )}
-        {mode === "convert" && step === 2 && (
-          <ResumeFormatStep resumeFile={resumeFile} onReset={handleReset} />
         )}
       </div>
     </div>

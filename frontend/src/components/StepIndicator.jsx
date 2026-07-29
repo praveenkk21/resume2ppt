@@ -1,6 +1,4 @@
-const PPT_STEPS = ["Upload Files", "Configure AI", "Download PPT", "Export Resume"];
-const DOCX_STEPS = ["Upload Files", "Configure AI", "Download DOCX"];
-const CONVERT_STEPS = ["Upload Resume", "Export Resume"];
+const steps = ["Upload Files", "Configure AI", "Download"];
 
 const styles = {
   wrapper: {
@@ -47,11 +45,7 @@ const styles = {
   }),
 };
 
-export default function StepIndicator({ currentStep, mode }) {
-  const steps =
-    mode === "convert" ? CONVERT_STEPS :
-    mode === "docx" ? DOCX_STEPS :
-    PPT_STEPS;
+export default function StepIndicator({ currentStep }) {
   return (
     <div style={styles.wrapper}>
       {steps.map((label, idx) => {
